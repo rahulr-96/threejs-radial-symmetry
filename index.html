@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title>radial-symmetry.html</title>
+    <meta charset="utf-8" />
+    <link rel="shortcut icon" href="ok.ico" />
+
+    <style>
+      body {
+        margin: 0px;
+        background-color: #0a0a0a;
+        overflow: hidden;
+      }
+    </style>
+
+    <script
+      async
+      src="https://unpkg.com/es-module-shims@1.6.3/dist/es-module-shims.js"
+    ></script>
+
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://unpkg.com/three@0.156.0/build/three.module.js",
+          "three/addons/": "https://unpkg.com/three@0.156.0/examples/jsm/"
+        }
+      }
+    </script>
+  </head>
+
+  <body>
+    <script type="module">
+      import * as THREE from "three";
+      import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+      import { Line2 } from "three/addons/lines/Line2.js";
+      import { LineMaterial } from "three/addons/lines/LineMaterial.js";
+      import { LineGeometry } from "three/addons/lines/LineGeometry.js";
+      import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
+      import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
+      import { ShaderPass } from "three/addons/postprocessing/ShaderPass.js";
+      import { GammaCorrectionShader } from "three/addons/shaders/GammaCorrectionShader.js";
+
+      var renderer, scene, camera, geometry, material, controls, composer;
+      var group = new THREE.Group();
+
+      const renderTarget = new THREE.WebGLRenderTarget(
+        window.innerWidth,
+        window.innerHeight,
+        {
+          samples: 8,
+          type: THREE.FloatType,
+          format: THREE.RGBAFormat,
+          encoding: THREE.LinearEncoding,
+        }
+      );
+
+      function init() {
+        renderer = new THREE.WebGLRenderer({ antialias: false });
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setClearColor("#ccc", 0);
+        renderer.outputColorSpace = THREE.LinearSRGBColorSpace;
+
+        document.body.appendChild(renderer.domElement);
+
+        composer = new EffectComposer(renderer, renderTarget);
+        composer.setPixelRatio(window.devicePixelRatio);
+        composer.setSize(window.innerWidth, window.innerHeight);
+
+        scene = new THREE.Scene();
+
+        camera = new THREE.PerspectiveCamera(
+          20,
+          window.innerWidth / window.innerHeight,
+          1,
+          1000
+        );
+        camera.position.set(0, 0, 6);
+
+        const renderPass = new RenderPass(scene, camera);
+        composer.addPass(renderPass);
+
+        const gammaPass = new ShaderPass(GammaCorrectionShader);
+        composer.addPass(gammaPass);
+
+        controls = new OrbitControls(camera, renderer.domElement);
+
+        for (let z = 1; z < 10; z++) {
+          const minLength = 0.8;
+          const maxLength = 1.0;
+          const sca = Math.random() * (maxLength - minLength) + minLength;
+
+          const baseAxes = createThinAxes(sca);
+
+          for (let i = 0; i < 3; i++) {
+            const axes = baseAxes.clone();
+
+            const colors = ["#9cb8dd", "#888888"];
+
+            const colorZ = new THREE.Color(
+              colors[Math.floor(Math.random() * 2)]
+            );
+            const spriteZ = new THREE.Sprite(
+              new THREE.SpriteMaterial({ color: colorZ })
+            );
+            const scaleZ = Math.random() * (0.05 - 0.02);
+            spriteZ.scale.set(scaleZ, scaleZ, 1);
+            spriteZ.position.set(0, 0, sca);
+            axes.add(spriteZ);
+
+            const colorY = new THREE.Color(
+              colors[Math.floor(Math.random() * 2)]
+            );
+            const spriteY = new THREE.Sprite(
+              new THREE.SpriteMaterial({ color: colorY })
+            );
+            const scaleY = Math.random() * (0.05 - 0.02);
+            spriteY.scale.set(scaleY, scaleY, 1);
+            spriteY.position.set(0, sca, 0);
+            axes.add(spriteY);
+
+            const colorX = new THREE.Color(
+              colors[Math.floor(Math.random() * 2)]
+            );
+            const spriteX = new THREE.Sprite(
+              new THREE.SpriteMaterial({ color: colorX })
+            );
+            const scaleX = Math.random() * (0.05 - 0.02);
+            spriteX.scale.set(scaleX, scaleX, 1);
+            spriteX.position.set(sca, 0, 0);
+            axes.add(spriteX);
+
+            axes.rotation.set(
+              Math.random() * Math.PI * 2,
+              Math.random() * Math.PI * 2,
+              Math.random() * Math.PI * 2
+            );
+
+            group.add(axes);
+          }
+        }
+        scene.add(group);
+      }
+
+      function animate() {
+        requestAnimationFrame(animate);
+        controls.update();
+        group.rotation.y += 0.0005;
+        renderer.render(scene, camera);
+        composer.render();
+      }
+
+      function createThinAxisLine(
+        start,
+        end,
+        colorHex = "#222222",
+        thickness = 0.5
+      ) {
+        const geometry = new LineGeometry();
+        geometry.setPositions([start.x, start.y, start.z, end.x, end.y, end.z]);
+
+        const material = new LineMaterial({
+          color: new THREE.Color(colorHex),
+          linewidth: thickness,
+          dashed: false,
+          resolution: new THREE.Vector2(window.innerWidth, window.innerHeight),
+        });
+
+        const line = new Line2(geometry, material);
+        line.computeLineDistances();
+        return line;
+      }
+
+      function createThinAxes(length = 1) {
+        const group = new THREE.Group();
+
+        group.add(
+          createThinAxisLine(
+            new THREE.Vector3(0, 0, 0),
+            new THREE.Vector3(length, 0, 0)
+          )
+        ); // X
+        group.add(
+          createThinAxisLine(
+            new THREE.Vector3(0, 0, 0),
+            new THREE.Vector3(0, length, 0)
+          )
+        ); // Y
+        group.add(
+          createThinAxisLine(
+            new THREE.Vector3(0, 0, 0),
+            new THREE.Vector3(0, 0, length)
+          )
+        ); // Z
+
+        return group;
+      }
+
+      init();
+      animate();
+    </script>
+  </body>
+</html>
